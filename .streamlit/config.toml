@@ -1,0 +1,6 @@
+[theme]
+primaryColor = "#2196F3"        # azul principal (botones, sliders, etc.)
+backgroundColor = "#FFFFFF"     # fondo blanco
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#000000"           # texto negro
+font = "sans serif"

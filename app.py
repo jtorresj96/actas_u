@@ -1,66 +1,53 @@
-import streamlit as st
 import os
-from upload_files import process_audio, process_pdf, process_txt
+import streamlit as st
+from core.db import init_db, seed_admin_if_empty
+from ui.components import login_form, get_current_user, logout_button
+from ui.layout import set_base_config
+from ui.pages import home, admin, historial
 
-def local_css(file_name):
-    with open(file_name, 'r') as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+set_base_config(title="Procesa tus documentos", icon="📄")
+PAGES_ADMIN = {
+    "Cargar documentos": home.render,
+    "Historial": historial.render,
+    "Admin": admin.render,
+    
+}
+
+PAGES_USER = {
+    "Cargar documentos": home.render,
+    "Historial": historial.render,
+    
+}
 
 def main():
-    local_css("styles.css")
     
+    init_db()
+    seed_admin_if_empty()
 
-    st.markdown('<div class="title">Procesa tus documentos</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Sube tus archivos de forma rápida y segura.</div>', unsafe_allow_html=True)
+    user = get_current_user()
+    if not user:
+        st.title("Procesa tus documentos")
+        login_form()
+        return
+    
+    role = st.session_state["role"]
+    print(role)
 
-    with st.container():
-        st.markdown('<div class="upload-box">Arrastra y suelta tus archivos aquí</div>', unsafe_allow_html=True)
-        uploaded_file = st.file_uploader(
-            "Subir archivo",
-            type=['mp3', 'wav', 'pdf', 'txt'],
-            label_visibility="collapsed"
-        )
+    st.sidebar.success(f"Conectado como: {user['username']} ({user['role']})")
 
-    archivos_usados = 500
-    archivos_totales = 1500
-    archivos_restantes = archivos_totales - archivos_usados
-    porcentaje = int((archivos_usados / archivos_totales) * 100)
+    # Cerrar sesión
+    if st.sidebar.button("Cerrar Sesión"):
+        st.session_state.clear()
+        st.rerun()
 
-    st.progress(porcentaje)
-    st.markdown(
-        f"""
-        <div class="progress-box">
-            <div><b>Archivos usados:</b> {archivos_usados}</div>
-            <div><b>Archivos restantes:</b> {archivos_restantes}</div>
-        </div>
-        <p style="text-align:center; color:#666;">Has usado el {porcentaje}% de tu cuota mensual.</p>
-        """,
-        unsafe_allow_html=True
-    )
+    pages = PAGES_ADMIN if role == "admin" else PAGES_USER
+    selection = st.sidebar.selectbox("Menú", options=list(pages))
+    pages[selection]()
 
-    if uploaded_file is not None:
-        file_extension = os.path.splitext(uploaded_file.name)[1].lower()
+    st.write("💡 Usa el menú lateral: ve a **Home** para procesar archivos o **Admin** para gestionar usuarios.")
 
-        if file_extension in ['.mp3', '.wav']:
-            st.write('Procesando archivo de audio...')
-            result = process_audio(uploaded_file)
-            st.subheader('Transcripción:')
-            st.write(result)
-
-        elif file_extension == '.pdf':
-            st.write('Extrayendo texto del PDF...')
-            result = process_pdf(uploaded_file)
-            st.subheader('Texto extraído:')
-            st.write(result)
-
-        elif file_extension == '.txt':
-            st.write('Leyendo archivo de texto...')
-            result = process_txt(uploaded_file)
-            st.subheader('Contenido del archivo:')
-            st.write(result)
-        else:
-            st.error('Tipo de archivo no soportado.')
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
+    # Variables opcionales para sembrar admin por primera vez
+    os.environ.setdefault("ADMIN_USER", "admin")
+    os.environ.setdefault("ADMIN_PASSWORD", "admin123")
     main()
