@@ -102,7 +102,7 @@ def render() -> None:
             c[2].write(dt.strftime("%Y-%m-%d %H:%M"))
         except Exception:
             c[2].write(r["uploaded_at"])
-        c[3].write(_fmt_ts(r["duration"]/1000.0))
+        c[3].write(_fmt_ts(r["duration"] / 1000.0 if r["duration"] is not None else 0))
         # Estado con puntico (simple)
         state = r["status"]
         dots = {"completado": "🟢", "procesando": "🟡", "error": "🔴", "pendiente": "⚪"}
