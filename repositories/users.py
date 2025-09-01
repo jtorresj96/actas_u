@@ -5,7 +5,7 @@ from core.security import hash_password
 def fetch_user(username: str):
     with get_conn() as conn:
         cur = conn.execute(
-            "SELECT id, username, password_hash, role, active, created_at FROM users WHERE username = ?",
+            "SELECT id, username, password_hash, role, active, created_at, email FROM users WHERE username = ?",
             (username,)
         )
         r = cur.fetchone()
@@ -13,7 +13,7 @@ def fetch_user(username: str):
             return None
         return {
             "id": r[0], "username": r[1], "password_hash": r[2],
-            "role": r[3], "active": bool(r[4]), "created_at": r[5]
+            "role": r[3], "active": bool(r[4]), "created_at": r[5], "email": r[6]
         }
 
 def list_users():

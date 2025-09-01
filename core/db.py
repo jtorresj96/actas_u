@@ -91,7 +91,8 @@ def insert_document(user_id: int, filename: str, ext: str, size_bytes: int,
 
 def update_document_status(doc_id: int, status: str,
                            output_path: Optional[str] = None,
-                           duration: Optional[str] = None):
+                           duration: Optional[str] = None,
+                           error_message: Optional[str] = None):
     fields = ["status=?"]
     values: List[Any] = [status]
     if output_path is not None:
@@ -103,6 +104,9 @@ def update_document_status(doc_id: int, status: str,
     if duration is not None:
         fields.append("duration=?")
         values.append(duration)
+    if error_message is not None:
+        fields.append("error_message=?")
+        values.append(error_message)
     values.append(doc_id)
     with closing(_connect()) as conn, conn:
         print(f"UPDATE documents SET {', '.join(fields)} WHERE id=?", values)

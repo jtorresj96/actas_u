@@ -172,7 +172,7 @@ def render() -> None:
         except Exception:
             c[2].write(r.get("uploaded_at", ""))
 
-        c[3].write(_fmt_ts(r.get("duration")/1000.0))
+        c[3].write(_fmt_ts(r.get("duration")/1000.0 if r.get("duration") else 0))
 
         dots = {"completado": "🟢", "procesando": "🟡", "error": "🔴", "pendiente": "⚪"}
         state = r.get("status", "pendiente")

@@ -18,6 +18,7 @@ def login_form():
             if "id" in result:
                 st.session_state["role"] = result["role"]
                 st.session_state["user_id"] = result["id"]
+                st.session_state["user_email"] = result["email"]
 
             st.rerun()
         else:

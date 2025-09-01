@@ -32,7 +32,6 @@ def main():
         return
     
     role = st.session_state["role"]
-    print(role)
 
     st.sidebar.success(f"Conectado como: {user['username']} ({user['role']})")
 
