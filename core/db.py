@@ -18,6 +18,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL,
             password_hash TEXT NOT NULL,
             role TEXT NOT NULL CHECK(role IN ('admin','user')),
             active INTEGER NOT NULL DEFAULT 1,
@@ -30,6 +32,7 @@ def init_db():
             user_id INTEGER NOT NULL,
             original_filename TEXT NOT NULL,
             ext TEXT NOT NULL,
+            duration INTEGER,
             size_bytes INTEGER NOT NULL,
             storage_path TEXT,              -- dónde guardaste el archivo original (opcional)
             status TEXT NOT NULL,           -- pendiente | procesando | completado | error
@@ -53,8 +56,8 @@ def seed_admin_if_empty():
         count = cur.fetchone()[0]
         if count == 0:
             conn.execute(
-                "INSERT INTO users (username, password_hash, role, active, created_at) VALUES (?, ?, 'admin', 1, ?)",
-                (admin_user, hash_password(admin_pass), datetime.utcnow().isoformat()),
+                "INSERT INTO users (username, password_hash, role, name, email, active, created_at) VALUES (?, ?, 'admin', ?, ?, 1, ?)",
+                (admin_user, hash_password(admin_pass), "Admin User", "admin@example.com", datetime.utcnow().isoformat()),
             )
             conn.commit()
 
@@ -88,7 +91,7 @@ def insert_document(user_id: int, filename: str, ext: str, size_bytes: int,
 
 def update_document_status(doc_id: int, status: str,
                            output_path: Optional[str] = None,
-                           error_message: Optional[str] = None):
+                           duration: Optional[str] = None):
     fields = ["status=?"]
     values: List[Any] = [status]
     if output_path is not None:
@@ -97,9 +100,9 @@ def update_document_status(doc_id: int, status: str,
     if status == "completado":
         fields.append("completed_at=?")
         values.append(datetime.utcnow().isoformat())
-    if error_message is not None:
-        fields.append("error_message=?")
-        values.append(error_message)
+    if duration is not None:
+        fields.append("duration=?")
+        values.append(duration)
     values.append(doc_id)
     with closing(_connect()) as conn, conn:
         print(f"UPDATE documents SET {', '.join(fields)} WHERE id=?", values)
@@ -132,11 +135,12 @@ def list_documents_by_user(user_id: int,
 
     where_sql = " AND ".join(clauses)
     sql = f"""
-        SELECT id, original_filename, uploaded_at, size_bytes, status, output_path, ext, storage_path
+        SELECT id, original_filename, uploaded_at, size_bytes, status, output_path, ext, storage_path, duration
         FROM documents
         WHERE {where_sql}
         ORDER BY {order_by}
     """
+    print(sql)
     with closing(_connect()) as conn:
         cur = conn.execute(sql, tuple(params))
         cols = [c[0] for c in cur.description]
@@ -156,3 +160,80 @@ def get_document(doc_id: int) -> Optional[Dict[str, Any]]:
         cols = [c[0] for c in cur.description]
         return dict(zip(cols, row))
 
+def list_all_documents(
+    search: Optional[str] = None,
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,   # 'YYYY-MM-DD'
+    date_to: Optional[str] = None,     # 'YYYY-MM-DD'
+    user_query: Optional[str] = None,  # filtrar por email o nombre
+    order_by: str = "d.uploaded_at DESC",
+) -> List[Dict[str, Any]]:
+    clauses = ["1=1"]
+    params: List[Any] = []
+    if search:
+        clauses.append("LOWER(d.original_filename) LIKE ?")
+        params.append(f"%{search.lower()}%")
+    if status and status != "Todos":
+        clauses.append("d.status = ?")
+        params.append(status)
+    if date_from:
+        clauses.append("DATE(d.uploaded_at) >= DATE(?)")
+        params.append(date_from)
+    if date_to:
+        clauses.append("DATE(d.uploaded_at) <= DATE(?)")
+        params.append(date_to)
+    if user_query:
+        clauses.append("(LOWER(u.email) LIKE ? OR LOWER(u.name) LIKE ?)")
+        uq = f"%{user_query.lower()}%"
+        params.extend([uq, uq])
+
+    where_sql = " AND ".join(clauses)
+    sql = f"""
+        SELECT
+            d.id, d.original_filename, d.uploaded_at, d.size_bytes, d.status, d.duration,
+            d.output_path, d.storage_path, d.ext,
+            u.id AS user_id, u.email, u.name
+        FROM documents d
+        JOIN users u ON u.id = d.user_id
+        WHERE {where_sql}
+        ORDER BY {order_by}
+    """
+    with closing(_connect()) as conn:
+        cur = conn.execute(sql, tuple(params))
+        cols = [c[0] for c in cur.description]
+        return [dict(zip(cols, r)) for r in cur.fetchall()]
+
+def stats_documents_by_user(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    status: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    clauses = ["1=1"]
+    params: List[Any] = []
+    if status and status != "Todos":
+        clauses.append("d.status = ?")
+        params.append(status)
+    if date_from:
+        clauses.append("DATE(d.uploaded_at) >= DATE(?)")
+        params.append(date_from)
+    if date_to:
+        clauses.append("DATE(d.uploaded_at) <= DATE(?)")
+        params.append(date_to)
+
+    where_sql = " AND ".join(clauses)
+    sql = f"""
+        SELECT
+            u.id AS user_id, u.email, u.name,
+            COUNT(d.id) AS doc_count,
+            COALESCE(SUM(d.duration), 0) AS total_duration,
+            MAX(d.uploaded_at) AS last_upload
+        FROM documents d
+        JOIN users u ON u.id = d.user_id
+        WHERE {where_sql}
+        GROUP BY u.id, u.email, u.name
+        ORDER BY doc_count DESC
+    """
+    with closing(_connect()) as conn:
+        cur = conn.execute(sql, tuple(params))
+        cols = [c[0] for c in cur.description]
+        return [dict(zip(cols, r)) for r in cur.fetchall()]

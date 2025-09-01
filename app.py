@@ -3,13 +3,14 @@ import streamlit as st
 from core.db import init_db, seed_admin_if_empty
 from ui.components import login_form, get_current_user, logout_button
 from ui.layout import set_base_config
-from ui.pages import home, admin, historial
+from ui.pages import home, admin, historial, admin_analytics
 
 set_base_config(title="Procesa tus documentos", icon="📄")
 PAGES_ADMIN = {
     "Cargar documentos": home.render,
     "Historial": historial.render,
     "Admin": admin.render,
+    "Analitica": admin_analytics.render,
     
 }
 

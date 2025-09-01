@@ -13,6 +13,8 @@ def render() -> None:
     with tabs[0]:
         st.subheader("Crear usuario")
         new_user = st.text_input("Usuario")
+        new_name = st.text_input("Nombre")
+        new_email = st.text_input("Email")
         new_pass = st.text_input("Contraseña", type="password")
         role = st.selectbox("Rol", ["user", "admin"])
         active = st.checkbox("Activo", value=True)
@@ -21,7 +23,7 @@ def render() -> None:
                 st.warning("Usuario y contraseña son obligatorios.")
             else:
                 try:
-                    create_user(new_user, new_pass, role=role, active=active)
+                    create_user(new_user, new_pass, new_name, new_email, role=role, active=active)
                     st.success("Usuario creado.")
                 except Exception as e:
                     st.error(f"No se pudo crear: {e}")

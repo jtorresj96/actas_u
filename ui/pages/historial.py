@@ -1,4 +1,5 @@
 import os, html
+from typing import Optional
 import streamlit as st
 from datetime import datetime
 from ui.layout import apply_css
@@ -69,14 +70,15 @@ def render() -> None:
         return
 
     # Render tabla estilo “ID / Nombre / Fecha / Tamaño / Estado / Acciones”
-    def fmt_size(b: int) -> str:
-        if b is None:
-            return "-"
-        kb = b / 1024
-        if kb < 1024:
-            return f"{kb:.1f} KB"
-        mb = kb / 1024
-        return f"{mb:.1f} MB"
+    def _fmt_ts(seconds: Optional[float]) -> str:
+        if seconds is None:
+            return "00:00:00.000"
+        total = int(seconds)
+        ms = int(round((seconds - total) * 1000))
+        h = total // 3600
+        m = (total % 3600) // 60
+        s = total % 60
+        return f"{h:02d}:{m:02d}:{s:02d}.{ms:03d}"
 
     st.markdown('<div class="table-card">', unsafe_allow_html=True)
     widths = [0.8, 3.6, 1.6, 1.2, 1.2, 1.6, 1.8]   # ajusta a gusto
@@ -84,12 +86,13 @@ def render() -> None:
     header[0].markdown("**ID**")
     header[1].markdown("**NOMBRE ARCHIVO**")
     header[2].markdown("**FECHA**")
-    header[3].markdown("**TAMAÑO**")
+    header[3].markdown("**DURACION**")
     header[4].markdown("**ESTADO**")
     header[5].markdown("**DESCARGAR SUBIDO**")
     header[6].markdown("**DESCARGAR RESULTADO**")
 
     for r in rows:
+        print(r)
         c = st.columns(widths)
         c[0].write(f"#{r['id']}")
         c[1].write(r["original_filename"])
@@ -99,15 +102,15 @@ def render() -> None:
             c[2].write(dt.strftime("%Y-%m-%d %H:%M"))
         except Exception:
             c[2].write(r["uploaded_at"])
-        c[3].write(fmt_size(r["size_bytes"]))
+        c[3].write(_fmt_ts(r["duration"]/1000.0))
         # Estado con puntico (simple)
         state = r["status"]
         dots = {"completado": "🟢", "procesando": "🟡", "error": "🔴", "pendiente": "⚪"}
         c[4].write(f"{dots.get(state, '⚪')} {state.capitalize()}")
         # ---- Botón: Descargar archivo subido
         storage_path = r.get("storage_path")
-        if storage_path and os.path.exists(f"uploads/{storage_path}"):
-            with open(f"uploads/{storage_path}", "rb") as f:
+        if storage_path and os.path.exists(storage_path):
+            with open(storage_path, "rb") as f:
                 data = f.read()
             c[5].download_button(
                 "Descargar",
@@ -121,8 +124,8 @@ def render() -> None:
 
         # ---- Botón: Descargar archivo resultado
         output_path = r.get("output_path")
-        if output_path and os.path.exists(f"outputs/{output_path}"):
-            with open(f"outputs/{output_path}", "rb") as f:
+        if output_path and os.path.exists(output_path):
+            with open(output_path, "rb") as f:
                 out_bytes = f.read()
             c[6].download_button(
                 "Descargar",

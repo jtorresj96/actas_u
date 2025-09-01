@@ -24,11 +24,11 @@ def list_users():
             for r in cur.fetchall()
         ]
 
-def create_user(username: str, password: str, role: str = "user", active: bool = True):
+def create_user(username: str, password: str, name: str, email: str, role: str = "user", active: bool = True):
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO users (username, password_hash, role, active, created_at) VALUES (?, ?, ?, ?, ?)",
-            (username, hash_password(password), role, 1 if active else 0, datetime.utcnow().isoformat())
+            "INSERT INTO users (username, password_hash, name, email, role, active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (username, hash_password(password), name, email, role, 1 if active else 0, datetime.utcnow().isoformat())
         )
         conn.commit()
 

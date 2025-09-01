@@ -35,10 +35,25 @@ def render() -> None:
     if uploaded_file is not None:
         file_extension = os.path.splitext(uploaded_file.name)[1].lower()
         size_bytes = uploaded_file.size or 0
+
+        os.makedirs("uploads", exist_ok=True)
+        save_path = os.path.join("uploads", uploaded_file.name)
+        with open(save_path, "wb") as f:
+            f.write(uploaded_file.getbuffer()) 
+
+        doc_id = db.insert_document(
+            user_id=st.session_state["user_id"],
+            filename=uploaded_file.name,
+            ext=file_extension.lstrip('.'),
+            size_bytes=size_bytes,
+            storage_path=save_path 
+         ) 
+
         if file_extension in [".mp3", ".wav"]:
             st.info("Procesando archivo de audio…")
             st.subheader("Transcripción:")
-            st.write(process_audio(uploaded_file))
+            out_path, duration = process_audio(uploaded_file, doc_id)
+            st.write(out_path)
         elif file_extension == ".pdf":
             st.info("Extrayendo texto del PDF…")
             st.subheader("Texto extraído:")
@@ -50,18 +65,9 @@ def render() -> None:
         else:
             st.error("Tipo de archivo no soportado.")
 
-        doc_id = db.insert_document(
-            user_id=st.session_state["user_id"],
-            filename=uploaded_file.name,
-            ext=file_extension.lstrip('.'),
-            size_bytes=size_bytes,
-            storage_path=None 
-         ) 
-        
-        os.makedirs("uploads", exist_ok=True)
-        save_path = os.path.join("uploads", uploaded_file.name)
-        with open(save_path, "wb") as f:
-            f.write(uploaded_file.getbuffer()) 
 
-        db.update_document_status(doc_id, "completado", uploaded_file.name)
+        
+
+
+        db.update_document_status(doc_id, "completado", out_path, duration)
 
